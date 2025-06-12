@@ -1,0 +1,27 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{c+c1}{// \PYGZhy{}\PYGZhy{}\PYGZhy{} Se evalúa A: Gaussiana en el píxel actual \PYGZhy{}\PYGZhy{}\PYGZhy{}}
+\PYG{k+kt}{float}\PYG{+w}{ }\PYG{n}{A}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{con\PYGZus{}o}\PYG{p}{.}\PYG{n}{w}\PYG{+w}{ }\PYG{o}{*}\PYG{+w}{ }\PYG{n}{expf}\PYG{p}{(}\PYG{n}{power}\PYG{p}{);}
+
+\PYG{c+c1}{// \PYGZhy{}\PYGZhy{}\PYGZhy{} Se evalúa B: misma Gaussiana desplazada por skew \PYGZhy{}\PYGZhy{}\PYGZhy{}}
+\PYG{k+kt}{float}\PYG{+w}{ }\PYG{n}{sx}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{skews2D}\PYG{p}{[}\PYG{n}{id}\PYG{p}{].}\PYG{n}{x}\PYG{p}{;}
+\PYG{k+kt}{float}\PYG{+w}{ }\PYG{n}{sy}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{skews2D}\PYG{p}{[}\PYG{n}{id}\PYG{p}{].}\PYG{n}{y}\PYG{p}{;}
+\PYG{n}{float2}\PYG{+w}{ }\PYG{n}{dB}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{p}{\PYGZob{}}\PYG{+w}{ }\PYG{n}{d}\PYG{p}{.}\PYG{n}{x}\PYG{+w}{ }\PYG{o}{\PYGZhy{}}\PYG{+w}{ }\PYG{n}{sx}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{d}\PYG{p}{.}\PYG{n}{y}\PYG{+w}{ }\PYG{o}{\PYGZhy{}}\PYG{+w}{ }\PYG{n}{sy}\PYG{+w}{ }\PYG{p}{\PYGZcb{};}
+\PYG{k+kt}{float}\PYG{+w}{ }\PYG{n}{powerB}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{p}{...;}\PYG{+w}{ }\PYG{c+c1}{// cálculo equivalente al de A pero con desplazamiento}
+\PYG{k+kt}{float}\PYG{+w}{ }\PYG{n}{B}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{expf}\PYG{p}{(}\PYG{n}{powerB}\PYG{p}{);}
+
+\PYG{c+c1}{// \PYGZhy{}\PYGZhy{}\PYGZhy{} Se aplica la máscara de asimetría \PYGZhy{}\PYGZhy{}\PYGZhy{}}
+\PYG{k+kt}{float}\PYG{+w}{ }\PYG{n}{mask}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+m+mf}{1.0f}\PYG{+w}{ }\PYG{o}{\PYGZhy{}}\PYG{+w}{ }\PYG{n}{expf}\PYG{p}{(}\PYG{o}{\PYGZhy{}}\PYG{n}{skew\PYGZus{}sensitivity}\PYG{p}{[}\PYG{n}{id}\PYG{p}{]}\PYG{+w}{ }\PYG{o}{*}\PYG{+w}{ }\PYG{n}{B}\PYG{p}{);}
+\PYG{k+kt}{float}\PYG{+w}{ }\PYG{n}{alpha}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{min}\PYG{p}{(}\PYG{l+m+mf}{0.99f}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{A}\PYG{+w}{ }\PYG{o}{*}\PYG{+w}{ }\PYG{n}{mask}\PYG{p}{);}
+\PYG{err}{\PYGZbs{}}\PYG{n}{end}\PYG{p}{\PYGZob{}}\PYG{n}{lstlisting}\PYG{p}{\PYGZcb{}}
+
+
+
+\PYG{n}{Esta}\PYG{+w}{ }\PYG{n}{máscara}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{continua}\PYG{+w}{ }\PYG{n}{y}\PYG{+w}{ }\PYG{n}{diferenciable}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{permite}\PYG{+w}{ }\PYG{n}{simular}\PYG{+w}{ }\PYG{n}{estructuras}\PYG{+w}{ }\PYG{n}{con}\PYG{+w}{ }\PYG{n}{asimetría}\PYG{+w}{ }\PYG{n}{direccional}\PYG{+w}{ }\PYG{n}{sin}\PYG{+w}{ }\PYG{n}{modificar}\PYG{+w}{ }\PYG{n}{directamente}\PYG{+w}{ }\PYG{n}{la}\PYG{+w}{ }\PYG{n}{forma}\PYG{+w}{ }\PYG{n}{base}\PYG{+w}{ }\PYG{n}{de}\PYG{+w}{ }\PYG{n}{la}\PYG{+w}{ }\PYG{n}{gaussiana}\PYG{p}{.}\PYG{+w}{ }\PYG{n}{La}\PYG{+w}{ }\PYG{n}{opacidad}\PYG{+w}{ }\PYG{k}{final}\PYG{+w}{ }\PYG{n}{resultante}\PYG{p}{,}\PYG{+w}{ }\PYG{err}{\PYGZbs{}}\PYG{n}{texttt}\PYG{p}{\PYGZob{}}\PYG{n}{alpha}\PYG{p}{\PYGZcb{},}\PYG{+w}{ }\PYG{n}{se}\PYG{+w}{ }\PYG{n}{utiliza}\PYG{+w}{ }\PYG{n}{luego}\PYG{+w}{ }\PYG{n}{en}\PYG{+w}{ }\PYG{n}{la}\PYG{+w}{ }\PYG{n}{composición}\PYG{+w}{ }\PYG{n}{tipo}\PYG{+w}{ }\PYG{err}{\PYGZbs{}}\PYG{n}{textit}\PYG{p}{\PYGZob{}}\PYG{n}{front}\PYG{o}{\PYGZhy{}}\PYG{n}{to}\PYG{o}{\PYGZhy{}}\PYG{n}{back}\PYG{p}{\PYGZcb{}}\PYG{+w}{ }\PYG{n}{como}\PYG{+w}{ }\PYG{n}{en}\PYG{+w}{ }\PYG{n}{el}\PYG{+w}{ }\PYG{n}{pipeline}\PYG{+w}{ }\PYG{n}{original}\PYG{p}{.}
+
+\PYG{err}{\PYGZbs{}}\PYG{n}{paragraph}\PYG{p}{\PYGZob{}}\PYG{n}{Resumen}\PYG{p}{\PYGZcb{}}
+\PYG{n}{Gracias}\PYG{+w}{ }\PYG{n}{a}\PYG{+w}{ }\PYG{n}{esta}\PYG{+w}{ }\PYG{n}{extensión}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{se}\PYG{+w}{ }\PYG{n}{logra}\PYG{+w}{ }\PYG{n}{incorporar}\PYG{+w}{ }\PYG{n}{asimetría}\PYG{+w}{ }\PYG{n}{visual}\PYG{+w}{ }\PYG{n}{y}\PYG{+w}{ }\PYG{n}{funcional}\PYG{+w}{ }\PYG{n}{en}\PYG{+w}{ }\PYG{n}{la}\PYG{+w}{ }\PYG{n}{representación}\PYG{+w}{ }\PYG{n}{sin}\PYG{+w}{ }\PYG{n}{necesidad}\PYG{+w}{ }\PYG{n}{de}\PYG{+w}{ }\PYG{n}{alterar}\PYG{+w}{ }\PYG{n}{la}\PYG{+w}{ }\PYG{n}{primitiva}\PYG{+w}{ }\PYG{n}{base}\PYG{p}{.}\PYG{+w}{ }\PYG{n}{La}\PYG{+w}{ }\PYG{n}{implementación}\PYG{+w}{ }\PYG{n}{se}\PYG{+w}{ }\PYG{n}{realiza}\PYG{+w}{ }\PYG{n}{con}\PYG{+w}{ }\PYG{n}{cambios}\PYG{+w}{ }\PYG{n}{mínimos}\PYG{+w}{ }\PYG{n}{y}\PYG{+w}{ }\PYG{n}{localizados}\PYG{+w}{ }\PYG{n}{en}\PYG{+w}{ }\PYG{n}{el}\PYG{+w}{ }\PYG{n}{código}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{asegurando}\PYG{+w}{ }\PYG{n}{compatibilidad}\PYG{+w}{ }\PYG{n}{con}\PYG{+w}{ }\PYG{n}{el}\PYG{+w}{ }\PYG{n}{pipeline}\PYG{+w}{ }\PYG{n}{original}\PYG{+w}{ }\PYG{n}{y}\PYG{+w}{ }\PYG{n}{con}\PYG{+w}{ }\PYG{n}{los}\PYG{+w}{ }\PYG{n}{marcos}\PYG{+w}{ }\PYG{n}{de}\PYG{+w}{ }\PYG{n}{diferenciación}\PYG{+w}{ }\PYG{n}{automática}\PYG{p}{.}\PYG{+w}{ }\PYG{n}{La}\PYG{+w}{ }\PYG{n}{combinación}\PYG{+w}{ }\PYG{n}{del}\PYG{+w}{ }\PYG{n}{desplazamiento}\PYG{+w}{ }\PYG{n}{proyectado}\PYG{+w}{ }\PYG{n}{y}\PYG{+w}{ }\PYG{n}{la}\PYG{+w}{ }\PYG{n}{máscara}\PYG{+w}{ }\PYG{n}{suavizada}\PYG{+w}{ }\PYG{n}{habilita}\PYG{+w}{ }\PYG{n}{una}\PYG{+w}{ }\PYG{n}{mayor}\PYG{+w}{ }\PYG{n}{expresividad}\PYG{+w}{ }\PYG{n}{geométrica}\PYG{+w}{ }\PYG{n}{con}\PYG{+w}{ }\PYG{n}{bajo}\PYG{+w}{ }\PYG{n}{costo}\PYG{+w}{ }\PYG{n}{computacional}\PYG{+w}{ }\PYG{n}{y}\PYG{+w}{ }\PYG{n}{estabilidad}\PYG{+w}{ }\PYG{n}{numérica}\PYG{+w}{ }\PYG{n}{durante}\PYG{+w}{ }\PYG{n}{el}\PYG{+w}{ }\PYG{n}{entrenamiento}\PYG{p}{.}
+
+\PYG{err}{\PYGZbs{}}\PYG{n}{subsection}\PYG{p}{\PYGZob{}}\PYG{n}{Kernel}\PYG{+w}{ }\PYG{n}{Backward}\PYG{p}{\PYGZcb{}}
+
+\PYG{err}{\PYGZbs{}}\PYG{n}{section}\PYG{p}{\PYGZob{}}\PYG{n}{Entrenamiento}\PYG{p}{\PYGZcb{}}
+\end{Verbatim}

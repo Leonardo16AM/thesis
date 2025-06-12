@@ -1,0 +1,21 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{c+c1}{// Transformación del punto desplazado por skew}
+\PYG{n}{float3}\PYG{+w}{ }\PYG{n}{p\PYGZus{}skew\PYGZus{}world}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{    }\PYG{n}{p\PYGZus{}orig}\PYG{p}{.}\PYG{n}{x}\PYG{+w}{ }\PYG{o}{+}\PYG{+w}{ }\PYG{n}{skews}\PYG{p}{[}\PYG{n}{idx}\PYG{p}{].}\PYG{n}{x}\PYG{p}{,}
+\PYG{+w}{    }\PYG{n}{p\PYGZus{}orig}\PYG{p}{.}\PYG{n}{y}\PYG{+w}{ }\PYG{o}{+}\PYG{+w}{ }\PYG{n}{skews}\PYG{p}{[}\PYG{n}{idx}\PYG{p}{].}\PYG{n}{y}\PYG{p}{,}
+\PYG{+w}{    }\PYG{n}{p\PYGZus{}orig}\PYG{p}{.}\PYG{n}{z}\PYG{+w}{ }\PYG{o}{+}\PYG{+w}{ }\PYG{n}{skews}\PYG{p}{[}\PYG{n}{idx}\PYG{p}{].}\PYG{n}{z}
+\PYG{p}{\PYGZcb{};}
+
+\PYG{n}{float4}\PYG{+w}{ }\PYG{n}{p\PYGZus{}skew\PYGZus{}h}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{transformPoint4x4}\PYG{p}{(}\PYG{n}{p\PYGZus{}skew\PYGZus{}world}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{projmatrix}\PYG{p}{);}
+
+\PYG{k+kt}{float}\PYG{+w}{ }\PYG{n}{inv\PYGZus{}w\PYGZus{}skew}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+m+mf}{1.f}\PYG{+w}{ }\PYG{o}{/}\PYG{+w}{ }\PYG{p}{(}\PYG{n}{p\PYGZus{}skew\PYGZus{}h}\PYG{p}{.}\PYG{n}{w}\PYG{+w}{ }\PYG{o}{+}\PYG{+w}{ }\PYG{l+m+mf}{1e\PYGZhy{}7f}\PYG{p}{);}
+\PYG{n}{float2}\PYG{+w}{ }\PYG{n}{p\PYGZus{}skew\PYGZus{}pix}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{    }\PYG{n}{ndc2Pix}\PYG{p}{(}\PYG{n}{p\PYGZus{}skew\PYGZus{}h}\PYG{p}{.}\PYG{n}{x}\PYG{+w}{ }\PYG{o}{*}\PYG{+w}{ }\PYG{n}{inv\PYGZus{}w\PYGZus{}skew}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{W}\PYG{p}{),}
+\PYG{+w}{    }\PYG{n}{ndc2Pix}\PYG{p}{(}\PYG{n}{p\PYGZus{}skew\PYGZus{}h}\PYG{p}{.}\PYG{n}{y}\PYG{+w}{ }\PYG{o}{*}\PYG{+w}{ }\PYG{n}{inv\PYGZus{}w\PYGZus{}skew}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{H}\PYG{p}{)}
+\PYG{p}{\PYGZcb{};}
+
+\PYG{n}{skews2D}\PYG{p}{[}\PYG{n}{idx}\PYG{p}{]}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{p}{\PYGZob{}}
+\PYG{+w}{    }\PYG{n}{p\PYGZus{}skew\PYGZus{}pix}\PYG{p}{.}\PYG{n}{x}\PYG{+w}{ }\PYG{o}{\PYGZhy{}}\PYG{+w}{ }\PYG{n}{point\PYGZus{}image}\PYG{p}{.}\PYG{n}{x}\PYG{p}{,}
+\PYG{+w}{    }\PYG{n}{p\PYGZus{}skew\PYGZus{}pix}\PYG{p}{.}\PYG{n}{y}\PYG{+w}{ }\PYG{o}{\PYGZhy{}}\PYG{+w}{ }\PYG{n}{point\PYGZus{}image}\PYG{p}{.}\PYG{n}{y}
+\PYG{p}{\PYGZcb{};}
+\end{Verbatim}

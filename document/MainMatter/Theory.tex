@@ -1,6 +1,184 @@
 \chapter{Marco Teórico}\label{chapter:theory}
 
-\section{Espacios Gaussianos y representación en 3D}
-\section{Proyección a 2D y rasterización diferenciable}
-\section{Propiedades de las distribuciones sesgadas (skew-normal multivariante)}
 \section{Notación y convenciones empleadas en la tesis}
+En esta tesis se adopta una notación matemática consistente para facilitar la lectura. A continuación se resumen las convenciones principales:
+
+\textbf{Vectores:} Se denotan con letra minúscula en negrita, por ejemplo $\mathbf{x}$. Un vector columna tridimensional se escribe como 
+$\mathbf{x} = (x, y, z)^\top$, donde el superíndice $\top$ indica la transposición (es decir, $\mathbf{x}^\top$ es un vector fila).
+
+\textbf{Escalares:} Se representan con letra minúscula en estilo normal o itálico, por ejemplo $s \in \mathbb{R}$, $t$ para el tiempo, etc. 
+Los parámetros individuales de vectores o matrices también se denotan con letras normales (por ejemplo $x$, $y$, $z$ para las componentes de $\mathbf{x}$).
+
+\textbf{Matrices:} Se denotan con letra mayúscula (habitualmente en negrita o con una letra griega mayúscula). Por ejemplo, $\Sigma$ 
+representa una matriz de covarianza $3\times 3$. La transpuesta de una matriz $M$ se indica como $M^\top$.
+
+\textbf{Operadores y derivadas:} $\nabla$ indica el operador gradiente. La notación $\frac{\partial}{\partial x}$ denota derivada parcial 
+respecto a $x$. En general, $f_x$ o $\partial f/\partial x$ indican la derivada parcial de $f$ con respecto a $x$. Para derivadas temporales 
+se emplea $\frac{d}{dt}$ o $\dot{f}(t)$ según convenga.
+
+\textbf{Funciones Gaussianas:} La distribución normal (Gaussiana) univariante con media $\mu$ y varianza $\sigma^2$ se denota $\mathcal{N}(\mu,\sigma^2)$. 
+En el caso multivariado, una distribución Gaussiana en $\mathbb{R}^d$ con media vectorial $\boldsymbol{\mu} \in \mathbb{R}^d$ y matriz de 
+covarianza $\Sigma \in \mathbb{R}^{d\times d}$ (simétrica definida positiva) se denota $\mathcal{N}(\boldsymbol{\mu}, \Sigma)$. 
+Su función de densidad de probabilidad (FDP) viene dada por:
+$$f(\mathbf{x}) = \frac{1}{(2\pi)^{d/2}\,|\Sigma|^{1/2}} \exp\!\Big(-\frac{1}{2}(\mathbf{x}-\boldsymbol{\mu})^\top \,\Sigma^{-1}\,(\mathbf{x}-\boldsymbol{\mu})\Big)\,.$$
+
+\textbf{Coordenadas y sistemas de referencia:} Salvo indicación en contrario, se emplea un sistema de coordenadas 3D derecho. 
+Un punto en el espacio 3D se denota $(x, y, z)$ en coordenadas cartesianas. Cuando se utilizan coordenadas homogéneas para transformaciones proyectivas, 
+se extiende como $(x, y, z, 1)$. Para las transformaciones de vista (cámara), $M_{wc}$ denota la matriz $4\times 4$ de transformación de mundo a cámara 
+(que incluye rotación $R_{wc}$ y traslación). Se asume la convención de cámara pinhole con eje $Z$ apuntando hacia adelante en el espacio de la cámara, 
+de modo que la proyección perspectiva estándar de un punto $\mathbf{X} = (X, Y, Z)^\top$ en coordenadas de cámara es 
+$(u, v) = \big(f \frac{X}{Z}, f \frac{Y}{Z}\big)$ (suponiendo distancia focal $f$ y coordenadas centradas).
+
+\textbf{Espacio de color:} Los colores se representarán típicamente como vectores en el espacio RGB. En contextos de renderizado físico, 
+se utilizará RGB en espacio lineal (no corregido por gamma) y, de ser necesario, se aclarará si se utilizan otros espacios de color (por ejemplo YUV, HSV) 
+o si se aplica alguna transformación de color. Un color se denotará como $\mathbf{c} = (R, G, B)$ con componentes en el rango apropiado (p. ej. $[0,1]$ 
+para intensidades normalizadas).
+
+Con estas convenciones, las expresiones matemáticas en la tesis mantienen consistencia. Por ejemplo, $\mathbf{v}^\top \mathbf{w}$ representa el 
+producto punto de dos vectores $\mathbf{v}$ y $\mathbf{w}$, $| \mathbf{x} |$ la norma euclídea de $\mathbf{x}$, y $\nabla f(\mathbf{x})$ el gradiente 
+de $f$ respecto a $\mathbf{x}$. Asimismo, $\mathbb{E}[X]$ denota la esperanza de una variable aleatoria $X$ y $\operatorname{Var}(X)$ su varianza. 
+Estas notaciones y símbolos serán utilizados a lo largo del capítulo para describir formalmente los conceptos teóricos.
+
+\section{Espacios Gaussianos y representación en 3D}
+En gráficos por computadora y visión 3D, es posible representar objetos tridimensionales mediante distribuciones Gaussianas en el espacio. 
+La idea básica es modelar la forma y apariencia de un objeto como una suma (o mezcla) de funciones gaussianas centradas en diferentes ubicaciones 
+del espacio 3D. Cada Gaussiana 3D aporta una “mancha” o splat elipsoidal cuyo volumen abarca una parte del objeto. Matemáticamente, una Gaussiana en 
+3D se caracteriza por un centroide (media) $\boldsymbol{\mu} = (\mu_x,\mu_y,\mu_z)^\top$, que indica su posición central en el espacio, y una matriz de 
+covarianza $\Sigma$, que describe la dispersión de la distribución alrededor del centroide en las tres dimensiones. La matriz $\Sigma$ determina la forma 
+y orientación del lóbulo Gaussiano: sus valores propios $\lambda_1,\lambda_2,\lambda_3$ (y vectores propios asociados) definen un elipsoide de densidad 
+en el espacio, cuyos semiejes tienen longitudes proporcionales a $\sqrt{\lambda_1}, \sqrt{\lambda_2}, \sqrt{\lambda_3}$ y direcciones dadas por los 
+vectores propios. Por ejemplo, si $\Sigma = \sigma^2 I$ es proporcional a la identidad, la distribución es isótropa (esfera simétrica); 
+valores propios distintos implican una Gaussiana anisótropa cuyos ejes de extensión difieren en longitud, formando un elipsoide. Asimismo, 
+la orientación de ese elipsoide en el espacio está dada por la base de vectores propios de $\Sigma$. En resumen, $\boldsymbol{\mu}$ sitúa la Gaussiana 
+en el espacio, mientras que $\Sigma$ determina si es una mancha esférica o elongada en alguna dirección y con qué amplitud de dispersión.
+
+En el contexto geométrico, un conjunto suficiente de Gaussianas puede 
+aproximar superficies continuas: por ejemplo, una fina Gaussiana anisótropa orientada con su eje menor perpendicular a una superficie puede actuar 
+como un surfel (elemento de superficie) que representa localmente un parche de esa superficie. Trabajos fundacionales en gráficos introdujeron 
+precisamente los surfels y técnicas de splatting para renderizar nubes de puntos como pequeñas elipses en lugar de píxeles puntuales, evitando 
+huecos y aliasing. En esos métodos, cada punto de una nube se renderiza como un disco o elipse (a menudo modelado con un peso Gaussiano) en lugar 
+de un punto infinitesimal, lo que genera una superficie continua al proyectar muchos puntos. Por ejemplo, Pfister et al. (2000) propusieron los surfels 
+(surface elements) que son esencialmente puntos con área (discos elipsoidales) para reconstruir superficies de alta calidad. Zwicker et al. (2001) 
+extendieron esta idea introduciendo filtrado EWA (elliptical weighted average) para el splatting de superficies, reduciendo el aliasing mediante kernels 
+Gaussianos anisótropos. Estos trabajos pioneros demostraron que las Gaussianas (o discos con pesos gaussianos) son primitivas efectivas para representar 
+y visualizar geometría compleja de manera robusta.
+
+Una propiedad importante de las Gaussianas es que proporcionan un campo continuo de densidad volumétrica. En lugar de representar una superficie solo 
+de forma implícita (como en una malla poligonal con bordes definidos), una colección de Gaussianas define una función continua en $\mathbb{R}^3$ 
+(por ejemplo, una función de densidad de ocupación o de radiancia). Esto las hace adecuadas para métodos de renderizado volumétrico continuo, 
+similares a los campos de radiancia (Neural Radiance Fields, NeRF), pero con la ventaja de ser una representación explícita y localizable espacialmente. 
+Recientes investigaciones han confirmado que las Gaussianas 3D constituyen una representación de escena flexible y expresiva, combinando 
+lo mejor de representaciones explícitas e implícitas: por un lado, permiten optimización eficiente con calidad visual comparable al estado del arte continuo, 
+y por otro, pueden rasterizarse rápidamente mediante proyección al plano de imagen. En particular, Kerbl et al. (2023) introducen una representación 
+de escenas basada en millones de Gaussianas anisótropas 3D, demostrando que son capaces de preservar las propiedades de los campos volumétricos continuos 
+y al mismo tiempo evitar cálculos ineficientes en regiones vacías del espacio. En su método, cada Gaussiana almacena no solo una densidad sino también 
+color (mediante coeficientes de armonicos esféricos para dependencia direccional) y se optimizan iterativamente parámetros como posición y 
+matriz de covarianza anisotrópica para ajustar finamente la forma de cada “gota” al contenido real de la escena. El resultado es una representación 
+compacta y precisa de la geometría y apariencia: típicamente del orden de 1 a 5 millones de Gaussianas sin estructura de conectividad, capaz de modelar 
+tanto partes difusas como detalles finos de la escena.
+
+\section{Proyección a 2D y rasterización diferenciable}
+Para visualizar o renderizar las Gaussianas 3D en una imagen 2D, es necesario proyectarlas mediante las transformaciones de cámara estándar y luego 
+simular el proceso de rasterización. Proyección 3D a 2D: Dado el centroide $\boldsymbol{\mu}$ de una Gaussiana en coordenadas del mundo, primero se 
+lleva a coordenadas de cámara aplicando la transformación rígida correspondiente (rototraslación). Si $\mathbf{X}=(X,Y,Z,1)^\top$ representa la 
+posición homogénea de $\boldsymbol{\mu}$ y $M_{wc}$ es la matriz $4\times4$ mundo-a-cámara, entonces $\mathbf{X}_c = M_{wc}\mathbf{X}$ da la posición 
+de la Gaussiana en el espacio de la cámara. Aplicando la proyección perspectiva $\Pi$ (definida por los parámetros intrínsecos de la cámara), 
+se obtiene la ubicación del centroide en la imagen: $\mathbf{x} = \Pi(\mathbf{X}_c) = (u,v)$. En un modelo de cámara pinhole simple, $\Pi$ 
+realiza $u = f X_c/Z_c, v = f Y_c/Z_c$ (asumiendo origen en el centro de la imagen), donde $(X_c, Y_c, Z_c)$ son las coordenadas de $\mathbf{X}_c$ y $f$ 
+es la distancia focal.
+
+Cuando se proyecta una distribución Gaussiana, no solo el centro se proyecta sino también su extensión. Intuitivamente, una Gaussiana 3D aparecerá en la 
+imagen como una mancha Gaussiana 2D (posiblemente elíptica) alrededor de $(u,v)$. La forma de esta elipse proyectada depende de la orientación de la 
+Gaussiana respecto a la cámara y de la profundidad $Z_c$. Un enfoque formal para derivar la distribución proyectada es considerar la transformación 
+lineal local inducida por la proyección en las cercanías de $\boldsymbol{\mu}$. Se puede obtener la covarianza proyectada mediante la propagación de 
+incertidumbre: dado el Jacobiano $J \in \mathbb{R}^{2\times3}$ de la función de proyección (evaluado en $\boldsymbol{\mu}$), la matriz de covarianza 
+en la imagen $\Sigma_{2D}$ se puede aproximar como $\Sigma_{2D} \approx J \Sigma J^\top$. En otras palabras, se proyecta el elipsoide 3D obteniendo 
+un elipsoide 2D. Por ejemplo, si la Gaussiana 3D es esférica (misma desviación en todas direcciones) su proyección seguirá siendo aproximadamente 
+circular (más pequeña si está lejos debido al factor $1/Z$); si es muy elongada en profundidad, su proyección puede aparecer comprimida. 
+Cabe mencionar que, para una transformación de proyección perspectiva completa (no lineal), este cálculo es una aproximación válida para Gaussianas 
+suficientemente pequeñas o para propósitos de derivadas. Algunos trabajos recientes incorporan este cálculo explícito: por ejemplo, Conti et al. (2025) 
+describen la proyección de Gaussianas 3D a 2D mediante $\boldsymbol{\mu}_{2D} = \pi(T_{wc}\boldsymbol{\mu})$ y $\Sigma_{2D} = J R_{wc}\Sigma R_{wc}^\top J^\top$, 
+donde $R_{wc}$ es la rotación de cámara y $\pi$ la proyección intrínseca, lo que coincide con la formulación mencionada.
+
+Rasterización diferenciable: Una vez proyectadas las Gaussianas al plano de imagen, hay que simular el proceso de rasterización, es decir, 
+cómo contribuyen a los píxeles de la imagen. A diferencia de una primitiva geométrica tradicional (como un triángulo) que se rasteriza 
+marcando píxeles cubiertos, una Gaussiana se rasteriza esparciendo su contribución de forma continua según su perfil de densidad. 
+En la práctica, cada Gaussiana proyectada se convierte en una mancha elíptica 2D (un splat). La intensidad de color que dicha Gaussiana 
+aporta a un punto de la imagen $(u,v)$ puede modelarse evaluando la función Gaussiana 2D en esa coordenada. Así, el color final de un píxel 
+se obtiene combinando las contribuciones de todas las Gaussianas cuya proyección cubre ese píxel. En términos de fórmula, si para un píxel $p$ 
+las Gaussianas $i=1\ldots N$ proyectan pesos $w_i(p)$ (obtenidos al evaluar la forma Gaussiana 2D de cada $i$ en la ubicación de $p$) y tienen 
+colores $\mathbf{c}_i$, entonces el color resultante es esencialmente un promedio ponderado $\sum_i w_i(p)\mathbf{c}_i$ (normalizado por 
+$\sum_i w_i$ o acompañado de una fórmula de composición por alfa, dependiendo del modelo de transparencia). En métodos volumétricos, esta 
+combinación se interpreta usualmente mediante compositing frontal-a-dorsal (alpha blending): las Gaussianas más cercanas ocultan (parcialmente) 
+a las lejanas según la ecuación de transmisión exponencial (similar al ray-marching de NeRF). De hecho, muchas técnicas de splatting equiparan 
+la combinación de puntos a la ecuación de renderizado volumétrico de rayos con alfa pre-multiplicado. Esto permite manejar correctamente la oclusión 
+y la acumulación de color de múltiples Gaussianas a lo largo de cada rayo de visión.
+
+Lo crucial del enfoque moderno es que todo el proceso de rasterización se diseña para ser diferenciable de extremo a extremo. Es decir, 
+la contribución $w_i(p)$ de cada Gaussiana a cada píxel $p$ es una función suave (por ejemplo, una Gaussiana 2D evaluada en la distancia del 
+píxel al centro $\mathbf{x}_i$), por lo que pequeñas variaciones en los parámetros de la Gaussiana ($\boldsymbol{\mu}_i$, $\Sigma_i$, opacidad, 
+color, etc.) producen cambios continuos en los píxeles. No hay decisiones binarias bruscas (como dentro/fuera de un triángulo) sino contribuciones 
+continuas. Esto habilita el cálculo de gradientes mediante retropropagación, de manera que algoritmos de optimización pueden ajustar los parámetros 
+de las Gaussianas comparando la imagen renderizada con una imagen objetivo.
+
+El método Gaussian Splatting de \cite{kerbl20233d}, sobre el cual se cimienta esta tesis es un referente moderno que combina todos los elementos mencionados: 
+utiliza millones de 
+Gaussianas 3D anisótropas para representar la escena y un algoritmo de rasterización capaz de proyectarlas en tiempo real respetando la oclusión 
+y acumulando color de forma difuminada pero exacta. En concreto, implementan un renderizador tile-based en GPU que ordena los splats Gaussianos 
+por profundidad y realiza la composición alpha en el orden correcto (de adelante hacia atrás), asegurando así que el resultado coincida con el modelo 
+volumétrico físico. Gracias a la naturaleza diferenciable de los splats Gaussianos (suavizados en píxeles), pueden además calcular gradientes 
+eficientemente para optimizar las propiedades de cada Gaussiana. El renderizador realiza el backward pass propagando el error de cada píxel 
+hacia los splats que contribuyeron a él, permitiendo refinar posición, covarianza, opacidad o color de las Gaussianas. Esta combinación de 
+representación Gaussiana 3D + rasterización diferenciable en 2D ha demostrado ser muy potente: logra velocidades de render cercano a tiempo real 
+(30 fps a 1080p) con calidad comparable o superior a técnicas basadas en redes neuronales mucho más lentas. En esencia, la proyección y 
+rasterización de Gaussianas habilita un pipeline de renderizado continuo donde cada Gaussiana actúa como una primitva analítica suave. La 
+diferenciabilidad garantiza que se pueda ajustar la escena automáticamente comparando las imágenes rasterizadas
+con las reales, cerrando así el bucle de renderización inversa o reconstrucción 3D asistida por gradientes.
+
+\section{Propiedades de las distribuciones sesgadas (skew-normal multivariante)}
+Hasta ahora hemos considerado distribuciones Gaussianas simétricas. Sin embargo, para aumentar la flexibilidad de modelado, 
+especialmente cerca de discontinuidades o bordes, es relevante introducir distribuciones sesgadas o con asimetría. Una de las familias más 
+conocidas es la distribución skew-normal (o normal asimétrica) propuesta originalmente por Azzalini (1985) y extendida al caso multivariante 
+por Azzalini y Dalla Valle (1996). Esta distribución generaliza la normal permitiendo skewness (sesgo) no nulo mediante parámetros adicionales. 
+En su forma más simple (univariada), la skew-normal con parámetros de ubicación $\xi$, escala $\omega$ y forma (sesgo) $\alpha$ tiene densidad:
+$$f(x) = \frac{2}{\omega} \,\phi\!\Big(\frac{x-\xi}{\omega}\Big)\,\Phi\!\Big(\alpha \,\frac{x-\xi}{\omega}\Big)\,,$$
+donde $\phi(\cdot)$ es la función de densidad de una normal estándar (media 0, varianza 1) y $\Phi(\cdot)$ es su función de distribución acumulada. 
+Intuitivamente, este formato multiplica la densidad simétrica $\phi$ por un factor $2\,\Phi(\alpha\cdot)$ que inclina el peso hacia un lado u otro 
+dependiendo del signo de $\alpha$. Si $\alpha=0$, $\Phi(0)=0.5$ constante y la fórmula se reduce a $\phi$, recuperando la distribución normal clásica 
+(sin sesgo). Para $\alpha > 0$, la $\Phi$ introducida acumula más probabilidad en la cola derecha, generando asimetría hacia la derecha; 
+si $\alpha < 0$, ocurre lo opuesto (sesgo a la izquierda). En efecto, $\alpha$ controla la asimetría: valores mayores de $|\alpha|$ implican 
+distribuciones más sesgadas (con colas más largas hacia un lado). No obstante, la skew-normal mantiene colas "delgadas" (exponenciales) 
+similares a la normal, por lo que la asimetría que introduce es moderada; de hecho, se puede demostrar que el coeficiente de sesgo (skewness) 
+de esta distribución está acotado en valor absoluto por 1 (en términos estandarizados). La curtosis (apuntamiento) también varía con $\alpha$, 
+pero de forma limitada – la familia skew-normal no produce colas pesadas como una t-Student, sino que sigue siendo esencialmente de colas finitas, 
+con una curtosis ligeramente distinta a 3 (la de la normal) dependiendo de $\alpha$. Por ejemplo, el exceso de curtosis para una univariante 
+viene dado por una fórmula en función de $\delta = \alpha/\sqrt{1+\alpha^2}$, indicando desviaciones moderadas del valor normal.
+
+En el caso multivariante, la distribución skew-normal (SN) se define para un vector aleatorio $\mathbf{X}\in \mathbb{R}^d$ con media 
+$\boldsymbol{\xi}\in\mathbb{R}^d$, matriz de dispersión (análogo a covarianza) $\Omega \in \mathbb{R}^{d\times d}$ y vector de forma 
+$\boldsymbol{\alpha}\in\mathbb{R}^d$. Una forma posible de su densidad es:
+$$f(\mathbf{x}) = 2 \;\phi_d(\mathbf{x}-\boldsymbol{\xi};\,\Omega)\;\Phi\!\big(\boldsymbol{\alpha}^\top \Omega^{-1/2}(\mathbf{x}-\boldsymbol{\xi})\big)\,,$$
+donde $\phi_d(\cdot;\Omega)$ es la densidad de una normal $d$-dimensional (media cero, covarianza $\Omega$) y $\Phi(\cdot)$ ahora representa 
+la CDF de una normal univariante evaluada en el escalar $\boldsymbol{\alpha}^\top \Omega^{-1/2}(\mathbf{x}-\boldsymbol{\xi})$ 
+(que combina las coordenadas de $\mathbf{x}$). Esta construcción asegura que si $\boldsymbol{\alpha}=\mathbf{0}$ se recupera la distribución 
+normal $N_d(\boldsymbol{\xi},\Omega)$. La interpretación geométrica de $\boldsymbol{\alpha}$ es menos directa que en 1D, pero esencialmente 
+define una dirección en el espacio $\mathbb{R}^3$ hacia la cual la distribución está “sesgada”. Por ejemplo, si $\boldsymbol{\alpha}$ apunta 
+en dirección del eje $X$, la distribución tendrá una cola más larga en ese sentido positivo que en el negativo. Una propiedad muy útil de la 
+familia skew-normal multivariante (tal como fue concebida por Azzalini y otros) es su cerradura bajo transformaciones lineales. 
+Esto significa que si $\mathbf{X}$ sigue una skew-normal multivariante, entonces cualquier transformación lineal $\mathbf{Y}=A\mathbf{X}+\mathbf{b}$ 
+produce otra variable $\mathbf{Y}$ que también sigue una distribución skew-normal (con parámetros adecuados transformados). Esta propiedad, 
+heredada de la normal, es importante para garantizar consistencia cuando se pasan distribuciones skew-normal a través de matrices de rotación, 
+escalado u otros cambios de base – la forma funcional se preserva.
+
+Desde el punto de vista de estadística multivariada, la distribución skew-normal aporta grados de libertad adicionales para ajustar asimetría 
+y curtosis de los datos. En contextos donde los datos presentan colas o sesgos (por ejemplo, iluminaciones no balanceadas, 
+distribuciones de colores con fondo oscuro y gradientes de sombras, etc.), las gaussianas puramente simétricas pueden ser insuficientes. 
+En nuestro caso de representación de geometría 3D, introducir Gaussianas asimétricas podría permitir modelar transiciones bruscas – por ejemplo, 
+el borde de un objeto donde a un lado hay superficie (densidad alta) y al otro lado hay vacío (densidad cero) no se modela bien con 
+una Gaussiana simétrica, pero una skew-normal podría aproximar mejor esa discontinuidad asignando una cola más larga hacia el interior 
+del objeto y un decaimiento rápido hacia el exterior. De forma análoga, en visión por computador se ha demostrado la ventaja de modelos 
+de mezcla asimétricos: \cite{2021_Chen} utilizan mezclas de skew-normals para segmentación de imágenes, argumentando que muchas 
+distribuciones de intensidad en imágenes reales son asimétricas (por ejemplo, en los bordes de objetos, la distribución de color a uno y 
+otro lado difiere) y mostrando que un GMM tradicional (simétrico) falla en capturar esos detalles. Su modelo de mezcla normal asimétrica logra 
+resultados más precisos, preservando mejor contornos, esquinas y estructuras delgadas en presencia de ruido. Esto sugiere que, al aplicar 
+distribuciones skew-normal en gráficos 3D, podríamos obtener una mayor fidelidad en regiones de bordes o discontinuidades. 

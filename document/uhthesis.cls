@@ -18,6 +18,11 @@
 \RequirePackage[refpage, intoc, spanish]{nomencl}
 \RequirePackage{graphicx}
 \RequirePackage{xcolor}
+\usepackage{minted}
+\usepackage{xcolor}
+
+% Colores opcionales personalizados si deseas
+\definecolor{bgcode}{RGB}{255,255,255} % blanco puro
 \RequirePackage[nottoc,notlof,notlot]{tocbibind}
 \RequirePackage{footmisc}
 \RequirePackage{csquotes}

@@ -1,7 +1,145 @@
 \chapter{Detalles de Implementación}\label{chapter:implementation}
+
+
+Esta sección describe la extensión realizada sobre el \textit{pipeline} original de \textbf{3D Gaussian Splatting} para soportar la rasterización diferenciable de gaussianas con asimetría (\textit{skewness}). Para ello, se añadieron a cada gaussiana cuatro nuevos parámetros flotantes: \texttt{skew} y \texttt{skew\_sensitivity}. Nótese que \texttt{skew} está compuesto por tres parámetros (uno por cada eje espacial), mientras que \texttt{skew\_sensitivity} es un único valor escalar.
+
+En el rasterizador diferenciable, la principal diferencia en la mayoría de los archivos es la inclusión de estas variables en las definiciones de entrada de múltiples funciones, hasta llegar al código del \textit{forward} y del \textit{backward} en CUDA, donde se ejecuta la lógica principal. Por esta razón, solo se explican detalladamente estos dos archivos, omitiendo el resto por considerarse cambios triviales.
+
+Adicionalmente, se describe el código general del entrenamiento, que también se basa en el código original, con las modificaciones necesarias para incorporar la asimetría en el proceso de optimización.
+
 \section{Rasterizador diferenciable de gaussianas con asimetría}
+El rasterizador diferenciable de \textit{Gaussian Splatting} organiza su fase previa al pintado en varias etapas que se ejecutan íntegramente en la GPU. Primero, cada gaussiana de la escena se transforma con la matriz de vista y proyección para obtener una elipse en el plano de pantalla. A partir de esa elipse se calcula un rectángulo contenedor alineado con los ejes de la imagen que indica el rango de píxeles potencialmente afectados. Si dicho rectángulo queda fuera de los límites de la imagen o la opacidad asociada es insignificante, la gaussiana se descarta mediante \textit{culling} temprano, evitando trabajo posterior inútil.
+
+Con los contenedores válidos se divide la imagen en \textit{tiles} regulares, por ejemplo de $16 \times 16$ píxeles, y se asigna un bloque de hilos CUDA a cada \textit{tile}. Para cada gaussiana se determina qué filas y columnas de \textit{tiles} intersecta su rectángulo; esos índices se almacenan en una lista global junto con un arreglo auxiliar que señala, para cada \textit{tile}, la posición inicial y la cantidad de gaussianas que le corresponden. 
+
+Antes de la rasterización por píxel, las gaussianas asociadas a cada \textit{tile} se ordenan por profundidad, utilizando como clave la coordenada z del centro proyectado. Esta ordenación garantiza que, cuando se componga la opacidad, el resultado sea consistente con la lógica de \textit{front-to-back}.
+
+Con las listas ya ordenadas se preparan buffers locales en memoria compartida para transmittancia parcial, máscaras y cualquier dato intermedio que se necesite durante el cómputo del \textit{tile}. Parámetros constantes como la inversa de la matriz de proyección o factores globales de escala se copian a memoria constante de la GPU para reducir la latencia de lectura.
+
+Por último se lanza un \textit{kernel} dedicado a cada \textit{tile}; dentro de él, cada hilo procesa uno o varios píxeles del \textit{tile}. Ese \textit{kernel} realiza la evaluación de las gaussianas y la composición alfa de forma diferenciable, su funcionamiento sera explicado en las proximas secciones. Es importante notar que todas las etapas previas son transformaciones deterministas y continuas respecto a los parámetros de cada gaussiana, por lo que los marcos de autograd pueden propagar gradientes sin interrupciones.
+
 
 \subsection{Kernel Forward}
+\subsection{Kernel \texttt{Forward} con soporte para asimetría}
+
+En el \textit{kernel} \texttt{forward} del rasterizador se programan modificaciones específicas para incorporar soporte a la asimetría, mediante la proyección de una segunda gaussiana desplazada y la aplicación de la máscara diferenciable basada en dicha proyección. Los principales cambios ocurren en las funciones  \texttt{preprocessCUDA} y \texttt{renderCUDA} del archivo \texttt{cuda\_rasterizer/forward.cu}, estas dos fases son llamadas secuencialmente al rasterizar. 
+
+\paragraph{Preprocesamiento}
+Durante esta fase, se transforma el centro de cada gaussiana, así como el punto desplazado por el vector \texttt{skew}. Ambos se proyectan al plano de la imagen, y se calcula la diferencia de posición en píxeles, que se almacena como \texttt{skews2D}. Esta diferencia servirá posteriormente para computar la máscara. El siguiente fragmento muestra el código relevante añadido en \texttt{preprocessCUDA}:
+
+
+\begin{minted}[bgcolor=bgcode, linenos, fontsize=\footnotesize]{cpp}
+// Transformación del punto desplazado por skew
+float3 p_skew_world = {
+    p_orig.x + skews[idx].x,
+    p_orig.y + skews[idx].y,
+    p_orig.z + skews[idx].z
+};
+
+float4 p_skew_h = transformPoint4x4(p_skew_world, projmatrix);
+
+float inv_w_skew = 1.f / (p_skew_h.w + 1e-7f);
+float2 p_skew_pix = {
+    ndc2Pix(p_skew_h.x * inv_w_skew, W),
+    ndc2Pix(p_skew_h.y * inv_w_skew, H)
+};
+
+skews2D[idx] = {
+    p_skew_pix.x - point_image.x,
+    p_skew_pix.y - point_image.y
+};
+\end{minted}
+
+\paragraph{Rasterización por píxel}
+En esta etapa, cada hilo evalúa una o varias gaussianas sobre su píxel correspondiente. Se computa tanto la gaussiana original como una versión desplazada, y se estima la máscara suavizada que modula la opacidad. El cálculo se basa en la forma:  
+
+
+\[
+\alpha = A \cdot \left(1 - \exp(-S \cdot B)\right)
+\]
+
+donde $A$ es la evaluación de la gaussiana original, $B$ es la misma gaussiana pero desplazada, y $S$ es el parámetro \texttt{skew\_sensitivity}. A continuación se muestra el codigo modificado en \texttt{renderCUDA} :
+
+
+
+\begin{minted}[bgcolor=bgcode, linenos, fontsize=\footnotesize]{cpp}
+// --- Se evalúa A: Gaussiana en el píxel actual ---
+float power = fmaf(-0.5f, 
+                  (con_o.x * d.x*d.x + con_o.z * d.y*d.y),
+                   - con_o.y * d.x * d.y);
+if (power > 0.0f)
+    continue;
+float A = con_o.w * expf(power);
+
+// --- Se evalúa B: misma Gaussiana desplazada por skew ---
+int   id     = collected_id[j];
+float sx = skews2D[id].x;
+float sy = skews2D[id].y;
+
+float2 dB    = { d.x - sx, d.y - sy };
+float powerB = fmaf(-0.5f , 
+                   (con_o.x * dB.x*dB.x+ con_o.z * dB.y*dB.y),
+                    - con_o.y * dB.x * dB.y);
+float B = expf(powerB);
+
+// --- Se aplica la máscara de asimetría ---
+float mask      = -expm1f(-skew_sensitivity[id] * B);
+float alpha = min(0.99f, A*mask);
+\end{minted}
+
+Se utilizan las funciones \texttt{fmaf} y \texttt{expm1f} para mejorar la precisión numérica del cálculo. La función \texttt{fmaf} realiza una multiplicación y una suma en una sola operación con redondeo único, reduciendo errores de acumulación. Por su parte, \texttt{expm1f} computa $\exp(x) - 1$ con mayor precisión cuando $x$ es cercano a cero, lo cual evita la cancelación numérica que ocurre al restar dos números casi iguales.
+
 \subsection{Kernel Backward}
 
-\section{Entrenamiento}
+
+El \textit{kernel backward} se encarga de calcular las derivadas necesarias para propagar los gradientes durante el entrenamiento, considerando las modificaciones introducidas por el modelo con asimetría. Este kernel está compuesto por dos funciones principales: \texttt{preprocessCUDA} y \texttt{renderCUDA}, las cuales son ejecutadas de forma inversa al forward.
+
+La función \texttt{preprocessCUDA} calcula la derivada del centro tridimensional de cada gaussiana proyectada, y adicionalmente propaga el gradiente hacia los parámetros \texttt{skew} y \texttt{skew\_sensitivity}. Para ello, transforma tanto el centro original como el punto desplazado por \texttt{skew} al espacio de imagen, y computa cómo las variaciones en las posiciones 2D afectan las coordenadas 3D originales, considerando la proyección con perspectiva. Este procedimiento permite calcular cómo pequeñas variaciones en los parámetros de asimetría afectan la imagen final.
+
+Por su parte, la función \texttt{renderCUDA} computa las derivadas respecto a todos los parámetros relevantes durante el proceso de rasterización diferenciable. Para cada píxel afectado, se evalúan tanto la gaussiana original como la desplazada, y se calcula la contribución de cada una a la opacidad final utilizando la máscara de asimetría. El gradiente de la pérdida con respecto al valor del píxel se propaga hacia:
+
+\begin{itemize}
+    \item Las coordenadas del centro proyectado (\texttt{mean2D}).
+    \item Los coeficientes de la matriz cónica de opacidad (\texttt{conic2D}).
+    \item La posición relativa del desplazamiento en 2D (\texttt{skews2D}).
+    \item La sensibilidad del \texttt{skew} (\texttt{skew\_sensitivity}).
+    \item La opacidad base de la gaussiana.
+    \item El color y la profundidad inversa si están presentes.
+\end{itemize}
+
+Este cálculo tiene en cuenta la acumulación alfa (\textit{alpha compositing}) en orden de profundidad, lo cual es crucial para que los gradientes se correspondan con el modelo de formación de imagen usado en la fase \texttt{forward}. Las contribuciones de cada parámetro son diferenciadas y acumuladas mediante operaciones atómicas, asegurando la corrección numérica en entornos altamente paralelos.
+
+Finalmente, los gradientes sobre \texttt{skews2D} se transforman nuevamente a coordenadas tridimensionales en la función \texttt{preprocessCUDA}, completando así la ruta de retropropagación desde la imagen generada hacia los parámetros originales de cada gaussiana. Este diseño permite integrar la asimetría como un componente completamente diferenciable dentro del pipeline de entrenamiento de \textit{3D Gaussian Splatting}.
+
+\section{Optimización de hiperparámetros}
+\label{sec:hyperopt}
+
+Durante la extensión del rasterizador diferenciable para soportar gaussianas asimétricas, se observó que la incorporación de nuevos parámetros, así como las modificaciones en la lógica del \textit{forward} y \textit{backward}, provocaron un cambio significativo en la escala y la dinámica de los gradientes propagados a lo largo del \textit{pipeline}. En particular, algunos gradientes asociados a los parámetros de posición, escala y opacidad se incrementaron hasta dos órdenes de magnitud respecto al pipeline original, lo que resultó en una sensibilidad marcada en la elección de los hiperparámetros de entrenamiento. Por tanto, fue imprescindible realizar una reoptimización cuidadosa de todos los hiperparámetros principales.
+
+Para abordar este problema, se diseñó una estrategia de optimización de hiperparámetros basada en \textbf{Optuna}, el cual emplea algoritmos bayesianos para explorar el espacio de búsqueda de manera adaptativa. La optimización se realizó sobre los principales hiperparámetros de entrenamiento: tasas de aprendizaje (para posición, opacidad, escala, rotación y \textit{features}), umbrales y frecuencias de densificación, así como parámetros de regularización. 
+
+Cada combinación candidata de hiperparámetros fue evaluada en múltiples escenas. Como métrica objetivo se utilizó el \textit{Peak Signal-to-Noise Ratio} (PSNR) promedio entre todas las escenas, incentivando la consistencia entre dominios. Para reducir el coste computacional y evitar el sobreajuste, se implementó \textit{early stopping} basado en la evolución del PSNR y un umbral mínimo de mejora significativa. Además, se estableció un límite de tiempo para cada prueba y se empleó \textit{pruning} de los experimentos poco prometedores.
+
+\subsection{Parámetros optimizados y resultados}
+
+Como resultado de este proceso, se obtuvo una configuración de hiperparámetros óptima que permitió estabilizar y maximizar la calidad de reconstrucción visual del modelo con asimetría, logrando valores de PSNR superiores y evitando oscilaciones no deseadas durante el entrenamiento. Los valores finales seleccionados para los principales hiperparámetros del modelo asimétrico fueron los siguientes:\footnote{Los nombres corresponden a los argumentos de la clase \texttt{OptimizationParams}.}
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Hiperparámetro} & \textbf{Valor óptimo} \\
+\midrule
+\texttt{position\_lr\_init}           & $3.79 \times 10^{-4}$ \\
+\texttt{position\_lr\_final}          & $3.35 \times 10^{-7}$ \\
+\texttt{position\_lr\_delay\_mult}    & $4.68 \times 10^{-2}$ \\
+\texttt{feature\_lr}                  & $1.25 \times 10^{-5}$ \\
+\texttt{opacity\_lr}                  & $7.49 \times 10^{-2}$ \\
+\texttt{scaling\_lr}                  & $2.50 \times 10^{-2}$ \\
+\texttt{rotation\_lr}                 & $2.31 \times 10^{-3}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent
+Cabe señalar que los valores encontrados difieren notablemente de los empleados en el pipeline original, reflejando el impacto de la nueva parametrización y la necesidad de ajustar las escalas de aprendizaje para cada tipo de parámetro. En particular, el \textit{learning rate} para opacidad y escala resultó significativamente mayor, compensando la reducción relativa de gradiente en estos parámetros tras la incorporación de la asimetría.
+

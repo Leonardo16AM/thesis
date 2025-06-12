@@ -1,0 +1,13 @@
+// --- Se evalúa A: Gaussiana en el píxel actual ---
+float A = con_o.w * expf(power);
+
+// --- Se evalúa B: misma Gaussiana desplazada por skew ---
+float sx = skews2D[id].x;
+float sy = skews2D[id].y;
+float2 dB = { d.x - sx, d.y - sy };
+float powerB = ...; // cálculo equivalente al de A pero con desplazamiento
+float B = expf(powerB);
+
+// --- Se aplica la máscara de asimetría ---
+float mask = 1.0f - expf(-skew_sensitivity[id] * B);
+float alpha = min(0.99f, A * mask);
